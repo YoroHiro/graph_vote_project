@@ -1,0 +1,56 @@
+# -------------------------
+#  PYTHON
+# -------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.log
+*.pickle
+*.pkl
+
+# -------------------------
+#  ENVIRONNEMENTS / SYSTEME
+# -------------------------
+.venv/
+venv/
+env/
+conda/
+.conda/
+*.swp
+*.swo
+
+# -------------------------
+#  DATA (à ne jamais pousser)
+# -------------------------
+data_lake/
+data/
+datasets/
+*.csv
+*.tsv
+*.parquet
+*.zip
+*.gz
+
+# -------------------------
+#  NOTEBOOKS
+# -------------------------
+.ipynb_checkpoints/
+
+# -------------------------
+#  LOGS
+# -------------------------
+logs/
+
+# -------------------------
+#  IDE / OS
+# -------------------------
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# -------------------------
+#  AUTRES
+# -------------------------
+*.env
+*.bak
