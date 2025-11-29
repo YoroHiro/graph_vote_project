@@ -4,7 +4,7 @@ from pathlib import Path
 
 # --- Configuration des chemins ---
 DOSSIER_RAW = Path("../data_lake/raw/vote")
-FICHIER_SORTIE = Path("../data_lake/formatted/votes_formatted.csv")
+FICHIER_SORTIE = Path("../data_lake/formatted/vote/votes_formatted.csv")
 FICHIER_SORTIE.parent.mkdir(parents=True, exist_ok=True)
 
 # --- Colonnes du CSV ---
