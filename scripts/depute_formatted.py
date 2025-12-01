@@ -1,65 +1,122 @@
-# depute_formatted.py
-
 import json
-import pandas as pd
+import csv
 from pathlib import Path
 
-RAW_DIR = Path("../data_lake/raw/depute")
-OUT_FILE = Path("../data_lake/formatted/depute/depute_formatted.csv")
-OUT_FILE.parent.mkdir(parents=True, exist_ok=True)
+# -----------------------------
+# 1️⃣ Chemins
+# -----------------------------
+DOSSIER_RAW = Path("../data_lake/raw/depute")
+FICHIER_SORTIE = Path("../data_lake/formatted/depute/depute_formatted.csv")
+FICHIER_SORTIE.parent.mkdir(parents=True, exist_ok=True)
 
-rows = []
+# -----------------------------
+# 2️⃣ Colonnes du CSV de sortie
+# -----------------------------
+colonnes = [
+    "uid",
+    "prenom",
+    "nom",
+    "profession",
+    "catSocPro",
+    "uri_hatvp",
+    "id_gp",
+    "id_par_pol",
+    "nb_mandats"
+]
 
-print("🧩 Extraction des députés...")
+print("🔍 Extraction des députés JSON → CSV...")
 
-for fichier in RAW_DIR.glob("*.json"):
-    if "Zone.Identifier" in fichier.name:
-        continue  # Ignore fichiers parasites Windows
+# -----------------------------
+# 3️⃣ Écriture du CSV
+# -----------------------------
+with open(FICHIER_SORTIE, "w", newline="", encoding="utf-8") as f_csv:
+    writer = csv.DictWriter(f_csv, fieldnames=colonnes)
+    writer.writeheader()
 
-    with open(fichier, "r", encoding="utf-8") as f:
-        data = json.load(f)
+    for fichier in DOSSIER_RAW.glob("*.json"):
+        try:
+            with open(fichier, "r", encoding="utf-8") as f:
+                data = json.load(f)
 
-    acteur = data.get("acteur", {})
-    etatCivil = acteur.get("etatCivil", {})
-    ident = etatCivil.get("ident", {})
-    profession = acteur.get("profession", {})
+            acteur = data.get("acteur", {})
 
-    # Identité
-    uid = acteur.get("uid")
-    prenom = ident.get("prenom")
-    nom = ident.get("nom")
-    profession_libelle = profession.get("libelleCourant")
-    catSocPro = acteur.get("catSocPro")
-    uri_hatvp = acteur.get("uri_hatvp")
+            # -----------------------------
+            # UID
+            # -----------------------------
+            uid = acteur.get("uid", {}).get("#text")
 
-    # Nombre de mandats
-    mandats = acteur.get("mandats", {}).get("mandat", [])
-    nb_mandats = len(mandats) if isinstance(mandats, list) else 1
+            # -----------------------------
+            # État civil
+            # -----------------------------
+            etatCivil = acteur.get("etatCivil", {})
+            ident = etatCivil.get("ident", {})
 
-    # Groupe politique (id_gp)
-    id_gp = None
-    for m in mandats if isinstance(mandats, list) else [mandats]:
-        if m.get("typeOrgane") == "GP":
-            id_gp = m.get("organes", {}).get("organeRef")
+            prenom = ident.get("prenom")
+            nom = ident.get("nom")
 
-    # Parti politique (id_par_pol)
-    id_par_pol = None
-    for m in mandats if isinstance(mandats, list) else [mandats]:
-        if m.get("typeOrgane") == "PARPOL":
-            id_par_pol = m.get("organes", {}).get("organeRef")
+            # -----------------------------
+            # Profession
+            # -----------------------------
+            profession = acteur.get("profession", {}).get("libelleCourant")
+            catSocPro = acteur.get("profession", {}).get("socProcINSEE", {}).get("catSocPro")
 
-    rows.append({
-        "uid": uid,
-        "prenom": prenom,
-        "nom": nom,
-        "profession": profession_libelle,
-        "catSocPro": catSocPro,
-        "uri_hatvp": uri_hatvp,
-        "id_gp": id_gp,
-        "id_par_pol": id_par_pol,
-        "nb_mandats": nb_mandats
-    })
+            # -----------------------------
+            # URI HATVP
+            # -----------------------------
+            uri_hatvp = acteur.get("uri_hatvp")
 
-df = pd.DataFrame(rows)
-df.to_csv(OUT_FILE, index=False, encoding="utf-8-sig")
-print(f"✅ {len(df)} députés sauvegardés dans : {OUT_FILE}")
+            # -----------------------------
+            # Mandats : on récupère GP & PARPOL
+            # -----------------------------
+            id_gp = None
+            id_par_pol = None
+            nb_mandats = 0
+
+            mandats = acteur.get("mandats", {}).get("mandat", [])
+            if isinstance(mandats, dict):
+                mandats = [mandats]
+
+            for m in mandats:
+                nb_mandats += 1
+                type_org = m.get("typeOrgane")
+                org_ref = m.get("organes", {}).get("organeRef")
+
+                # Normalisation organeRef potentiel tableau
+                if isinstance(org_ref, list):
+                    org_refs = org_ref
+                else:
+                    org_refs = [org_ref]
+
+                # Groupe parlementaire
+                if type_org == "GP":
+                    for o in org_refs:
+                        if o and o.startswith("PO"):
+                            id_gp = o
+
+                # Parti politique
+                if type_org == "PARPOL":
+                    for o in org_refs:
+                        if o and o.startswith("PO"):
+                            id_par_pol = o
+
+            # -----------------------------
+            # Ligne finale
+            # -----------------------------
+            writer.writerow({
+                "uid": uid,
+                "prenom": prenom,
+                "nom": nom,
+                "profession": profession,
+                "catSocPro": catSocPro,
+                "uri_hatvp": uri_hatvp,
+                "id_gp": id_gp,
+                "id_par_pol": id_par_pol,
+                "nb_mandats": nb_mandats
+            })
+
+            print(f"✅ {fichier.name} traité.")
+
+        except Exception as e:
+            print(f"⚠️ Erreur avec {fichier.name} : {e}")
+
+print(f"\n📦 Extraction terminée → {FICHIER_SORTIE}")
